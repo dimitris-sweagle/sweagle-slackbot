@@ -137,7 +137,7 @@ if (!process.env.clientId || !process.env.clientSecret) {
   // XXX START SPECIFIC PART HERE XXX
 
   controller.hears('hello','direct_mention,direct_message', function(bot, message) {
-    bot.reply(message,'Howdy!');
+    bot.reply(message,'Hello !\nHow can I help you today ?');
   });
   
   controller.hears('tacos','direct_mention,direct_message', function(bot, message) {
@@ -155,8 +155,39 @@ if (!process.env.clientId || !process.env.clientSecret) {
   
   controller.on('slash_command',function(bot,message) {
     // reply to slash command
-    //bot.replyPublic(message,'Everyone can see this part of the slash command');
-    bot.replyPrivate(message,'Only the person who used the slash command can see this.');
+    //var sweagle = require(__dirname + '/components/sweagle/sweagle_commands.js')(message.text);
+    var args = message.text.split(' ');
+    var response = "";
+    switch (message.command) {
+      case '/getkeyvalue':
+        if (args.length < 2) {
+          bot.replyPrivate(message,'You did not provide enough arguments, please provide MDS and KEY');      
+        } else {
+          const request = require('request');
+          const options = {  
+            url: "https://testing.sweagle.com/api/v1/tenant/metadata-parser/parse?mds=" + args[0] + "&parser=returnValueforKey&args=" + args[1],
+            method: "POST",
+            headers: {
+              "Authorization": "Bearer 34c193df-6de4-4429-972f-c3c1eb691a53"
+            }
+          };
+
+          request(options, function (error, response, body) {
+            if (!error && response.statusCode == 200) {
+              //console.log(response);
+              bot.replyPrivate(message, 'In MDS: ' + args[0] + ', the value for key: ' + args[1] + ' is: ' + body);
+            } else {
+              bot.replyPrivate(message, 'Sorry, I got an error getting your value: ' + body);
+            } 
+          });          
+          //response = sweagle.getKeyValue();
+        }       
+        break;
+        
+      default:
+        bot.replyPrivate(message, "Sorry, I don't know your command: " + message.command);             
+    }
+    
   })
   
   // XXX END SPECIFIC PART HERE XXX
