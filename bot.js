@@ -54,6 +54,13 @@ This bot demonstrates many of the core features of Botkit:
 var env = require('node-env-file');
 env(__dirname + '/.env');
 
+  // XXX START SPECIFIC SWEAGLE PART HERE XXX
+var SWEAGLE_TENANT = "";
+var SWEAGLE_TOKEN = "";
+
+  // XXX END SPECIFIC SWEAGLE PART HERE XXX
+
+
 
 if (!process.env.clientId || !process.env.clientSecret || !process.env.PORT) {
   usage_tip();
@@ -134,25 +141,48 @@ if (!process.env.clientId || !process.env.clientSecret) {
     require("./skills/" + file)(controller);
   });
 
-  // XXX START SPECIFIC PART HERE XXX
+  // XXX START SPECIFIC SWEAGLE PART HERE XXX
 
+  // This is when we hear 'hello', display welcome message
   controller.hears('hello','direct_mention,direct_message', function(bot, message) {
-    bot.reply(message,'Hello !\nHow can I help you today ?');
+    bot.reply(message,"Hello !\nHow can I help you today ?"
+             + "\n Type 'setup' to setup your tenant or 'help' to get list of commands.");
   });
   
-  controller.hears('tacos','direct_mention,direct_message', function(bot, message) {
+  // this is when we hear 'help', display list of commands
+  controller.hears('help','direct_mention,direct_message', function(bot, message) {
+    bot.reply(message,'Here is list of commands I am able to handle:'
+             + '\n/setup        - to setup both tenant and API token'
+             + '\n/settenant    - to setup only tenant'
+             + '\n/settoken     - to setup only API token'
+             + '\n/getkeyvalue  - Returns value of a key in specified metadataset');
+  });
+
+  // this is when we hear 'setup', start a dialog in order to set both tenant and token
+  controller.hears('setup','direct_mention,direct_message', function(bot, message) {
     bot.startConversation(message, function(err, convo) {
-    convo.say('Oh boy, taco time!');
-    convo.ask('What type of taco do you want?', function(answer, convo) {
-      var taco_type = answer.text;
-      // do something with this answer!
-      // storeTacoType(convo.context.user, taco_type);
-      convo.say('YUMMMM!!!'); // add another reply
-      convo.next(); // continue with conversation
-    });
+      if (SWEAGLE_TENANT == "") {
+        convo.say("You didn't set any TENANT yet");
+      } else {
+        convo.say("Your current TENANT is: " + SWEAGLE_TENANT);
+      }
+      if (SWEAGLE_TOKEN == "") {
+        convo.say("You didn't set any TOKEN yet");
+      } else {
+        convo.say('You already set your TOKEN');
+      }
+      convo.ask('What value would you like to change?', function(answer, convo) {
+        var taco_type = answer.text;
+        // do something with this answer!
+        // storeTacoType(convo.context.user, taco_type);
+        convo.say('YUMMMM!!!'); // add another reply
+        convo.next(); // continue with conversation
+      });
   });
 });
   
+  
+  // This part handles all slack commands which is direct way to order something to our bot
   controller.on('slash_command',function(bot,message) {
     // reply to slash command
     //var sweagle = require(__dirname + '/components/sweagle/sweagle_commands.js')(message.text);
@@ -160,37 +190,69 @@ if (!process.env.clientId || !process.env.clientSecret) {
     var response = "";
     switch (message.command) {
       case '/getkeyvalue':
-        if (args.length < 2) {
-          bot.replyPrivate(message,'You did not provide enough arguments, please provide MDS and KEY');      
+        if (SWEAGLE_TOKEN == "") {
+           bot.replyPrivate(message,'Please, set your TOKEN first');      
         } else {
-          const request = require('request');
-          const options = {  
-            url: "https://testing.sweagle.com/api/v1/tenant/metadata-parser/parse?mds=" + args[0] + "&parser=returnValueforKey&args=" + args[1],
-            method: "POST",
-            headers: {
-              "Authorization": "Bearer 34c193df-6de4-4429-972f-c3c1eb691a53"
-            }
-          };
-
-          request(options, function (error, response, body) {
-            if (!error && response.statusCode == 200) {
-              //console.log(response);
-              bot.replyPrivate(message, 'In MDS: ' + args[0] + ', the value for key: ' + args[1] + ' is: ' + body);
+           if (args.length < 2) {
+              bot.replyPrivate(message,'You did not provide enough arguments, please provide MDS and KEY');      
             } else {
-              bot.replyPrivate(message, 'Sorry, I got an error getting your value: ' + body);
-            } 
-          });          
-          //response = sweagle.getKeyValue();
+              const request = require('request');
+              const options = {  
+                url: "https://" + SWEAGLE_TENANT + "/api/v1/tenant/metadata-parser/parse?mds=" + args[0] + "&parser=returnValueforKey&args=" + args[1],
+                method: "POST",
+                headers: {
+                  "Authorization": "Bearer " + SWEAGLE_TOKEN
+                }
+              };
+
+              request(options, function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                  //console.log(response);
+                  bot.replyPrivate(message, 'In MDS: ' + args[0] + ', the value for key: ' + args[1] + ' is: ' + body);
+                } else {
+                  bot.replyPrivate(message, 'Sorry, I got an error getting your value: ' + body);
+                } 
+              });          
+              //response = sweagle.getKeyValue();
+            }
+        }
+        break;
+        
+      case '/settenant':
+        if (args.length < 1) {
+          bot.replyPrivate(message,'You did not provide enough arguments, please provide TENANT');      
+        } else {
+          SWEAGLE_TENANT = args[0] + ".sweagle.com";
+          bot.replyPrivate(message,"Thanks, you set your TENANT to: " + SWEAGLE_TENANT);      
         }       
         break;
         
+      case '/settoken':
+        if (args.length < 1) {
+          bot.replyPrivate(message,"You did not provide enough arguments, please provide TOKEN");      
+        } else {
+          SWEAGLE_TOKEN = args[0];
+          bot.replyPrivate(message,"Thanks, you just set your TOKEN");      
+        }       
+        break;
+
+      case '/setup':
+        if (args.length < 2) {
+          bot.replyPrivate(message,"You did not provide enough arguments, please provide TENANT and TOKEN");      
+        } else {
+          SWEAGLE_TENANT = args[0] + ".sweagle.com";
+          SWEAGLE_TOKEN = args[1];
+          bot.replyPrivate(message,"Thank you, you set your TENANT to:" + SWEAGLE_TENANT + ", and you also set your TOKEN.");      
+        }       
+        break;
+
       default:
         bot.replyPrivate(message, "Sorry, I don't know your command: " + message.command);             
     }
     
   })
   
-  // XXX END SPECIFIC PART HERE XXX
+  // XXX END SPECIFIC SWEAGLE PART HERE XXX
 
   
   // This captures and evaluates any message sent to the bot as a DM
