@@ -55,7 +55,8 @@ var env = require('node-env-file');
 env(__dirname + '/.env');
 
   // XXX START SPECIFIC SWEAGLE PART HERE XXX
-var SWEAGLE_TENANT = "";
+//set default value for the tenant to testing
+var SWEAGLE_TENANT = "testing.sweagle.com";
 var SWEAGLE_TOKEN = "";
 
   // XXX END SPECIFIC SWEAGLE PART HERE XXX
@@ -155,7 +156,8 @@ if (!process.env.clientId || !process.env.clientSecret) {
              + '\n/setup        - to setup both tenant and API token'
              + '\n/settenant    - to setup only tenant'
              + '\n/settoken     - to setup only API token'
-             + '\n/getkeyvalue  - Returns value of a key in specified metadataset');
+             + '\n/getconfig    - returns your configuration snapshot'
+             + '\n/getkeyvalue  - returns value of a key in specified metadataset');
   });
 
   // this is when we hear 'setup', start a dialog in order to set both tenant and token
@@ -163,23 +165,21 @@ if (!process.env.clientId || !process.env.clientSecret) {
     bot.startConversation(message, function(err, convo) {
       if (SWEAGLE_TENANT == "") {
         convo.say("You didn't set any TENANT yet");
+        convo.say("Use /settenant to set your token");
       } else {
         convo.say("Your current TENANT is: " + SWEAGLE_TENANT);
+        convo.say("Use /settenant to change your tenant");
       }
       if (SWEAGLE_TOKEN == "") {
         convo.say("You didn't set any TOKEN yet");
+        convo.say("Use /settoken to set your token");
       } else {
         convo.say('You already set your TOKEN');
-      }
-      convo.ask('What value would you like to change?', function(answer, convo) {
-        var taco_type = answer.text;
-        // do something with this answer!
-        // storeTacoType(convo.context.user, taco_type);
-        convo.say('YUMMMM!!!'); // add another reply
-        convo.next(); // continue with conversation
-      });
+      }      
+      convo.say('Thank you!!!');
+      convo.next();
+    });
   });
-});
   
   
   // This part handles all slack commands which is direct way to order something to our bot
@@ -189,6 +189,35 @@ if (!process.env.clientId || !process.env.clientSecret) {
     var args = message.text.split(' ');
     var response = "";
     switch (message.command) {
+      case '/getconfig':
+        if (SWEAGLE_TOKEN == "") {
+           bot.replyPrivate(message,'Please, set your TOKEN first');      
+        } else {
+           if (args.length < 2) {
+              bot.replyPrivate(message,'You did not provide enough arguments, please provide MDS and PARSER');      
+            } else {
+              const request = require('request');
+              const options = {  
+                url: "https://" + SWEAGLE_TENANT + "/api/v1/tenant/metadata-parser/parse?mds=" + args[0] + "&parser=" + args[1] + "&args=" + args[2],
+                method: "POST",
+                headers: {
+                  "Authorization": "Bearer " + SWEAGLE_TOKEN
+                }
+              };
+
+              request(options, function (error, response, body) {
+                if (!error && response.statusCode == 200) {
+                  //console.log(response);
+                  bot.replyPrivate(message, 'GetConfig for MDS: ' + args[0] + ' with parser: ' + args[1] + ' and args: ' + args[2] + '\n' + body);
+                } else {
+                  bot.replyPrivate(message, 'Sorry, I got an error getting your config: ' + body);
+                } 
+              });          
+              //response = sweagle.getKeyValue();
+            }
+        }
+        break;
+
       case '/getkeyvalue':
         if (SWEAGLE_TOKEN == "") {
            bot.replyPrivate(message,'Please, set your TOKEN first');      
