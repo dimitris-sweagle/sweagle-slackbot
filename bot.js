@@ -165,7 +165,7 @@ if (!process.env.clientId || !process.env.clientSecret) {
     bot.startConversation(message, function(err, convo) {
       if (SWEAGLE_TENANT == "") {
         convo.say("You didn't set any TENANT yet");
-        convo.say("Use /settenant to set your token");
+        convo.say("Use /settenant to set your tenant");
       } else {
         convo.say("Your current TENANT is: " + SWEAGLE_TENANT);
         convo.say("Use /settenant to change your tenant");
